@@ -41,7 +41,7 @@ func StartServer(database db.Database) {
 
 	srv := NewServer(database, redisClient)
 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	http.Handle("/query", srv)
+	http.Handle("/query", srv.Handler)
 
 	log.Printf("connect to http://localhost:8080/ for GraphQL playground")
 	log.Fatal(http.ListenAndServe(":8080", nil))
