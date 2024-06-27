@@ -1,15 +1,21 @@
 package db
 
 import (
-	"api/internal/models"
+	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
+
+	"api/internal/models"
+	"github.com/go-redis/redis/v8"
+	"github.com/google/uuid"
 )
 
 type InMemoryDB struct {
 	posts         map[string]*models.Post
 	comments      map[string]*models.Comment
 	subscriptions map[string][]chan *models.Comment
+	Redis         *redis.Client
 	sync.RWMutex
 }
 
@@ -44,7 +50,7 @@ func (db *InMemoryDB) GetPostByID(id string) (*models.Post, error) {
 func (db *InMemoryDB) CreatePost(title string, content string, commentsEnabled bool) (*models.Post, error) {
 	db.Lock()
 	defer db.Unlock()
-	id := generateID()
+	id := uuid.New().String()
 	post := &models.Post{
 		ID:              id,
 		Title:           title,
@@ -63,7 +69,7 @@ func (db *InMemoryDB) CreateComment(postId string, parentId *string, content str
 	if !exists || !post.CommentsEnabled {
 		return nil, fmt.Errorf("cannot add comment")
 	}
-	id := generateID()
+	id := uuid.New().String()
 	comment := &models.Comment{
 		ID:       id,
 		PostID:   postId,
@@ -85,17 +91,25 @@ func (db *InMemoryDB) CreateComment(postId string, parentId *string, content str
 }
 
 func (db *InMemoryDB) SubscribeToComments(postId string) (<-chan *models.Comment, error) {
-	db.Lock()
-	defer db.Unlock()
 	ch := make(chan *models.Comment)
-	db.subscriptions[postId] = append(db.subscriptions[postId], ch)
+	go func() {
+		pubsub := db.Redis.Subscribe(context.Background(), fmt.Sprintf("post:%s:comments", postId))
+		defer pubsub.Close()
+
+		for msg := range pubsub.Channel() {
+			var comment models.Comment
+			if err := json.Unmarshal([]byte(msg.Payload), &comment); err == nil {
+				ch <- &comment
+			}
+		}
+	}()
 	return ch, nil
 }
 
 func (db *InMemoryDB) NotifySubscribers(postId string, comment *models.Comment) {
-	db.RLock()
-	defer db.RUnlock()
-	for _, ch := range db.subscriptions[postId] {
-		ch <- comment
+	data, err := json.Marshal(comment)
+	if err != nil {
+		return
 	}
+	db.Redis.Publish(context.Background(), fmt.Sprintf("post:%s:comments", postId), data)
 }
