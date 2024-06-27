@@ -1,0 +1,21 @@
+schema:
+  - internal/graphql/schema.graphql
+
+exec:
+  filename: internal/graphql/generated.go
+  package: graphql
+
+model:
+  filename: internal/graphql/models_gen.go
+  package: graphql
+
+resolver:
+  layout: follow-schema
+  dir: internal/graphql
+  package: graphql
+
+models:
+  Post:
+    model: api/internal/models.Post
+  Comment:
+    model: api/internal/models.Comment
