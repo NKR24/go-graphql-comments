@@ -14,7 +14,6 @@ type Resolver struct {
 	Redis *redis.Client
 }
 
-// Query resolvers
 func (r *Resolver) Posts(ctx context.Context) ([]*models.Post, error) {
 	return r.DB.GetAllPosts()
 }
@@ -23,7 +22,6 @@ func (r *Resolver) Post(ctx context.Context, id string) (*models.Post, error) {
 	return r.DB.GetPostByID(id)
 }
 
-// Mutation resolvers
 func (r *Resolver) CreatePost(ctx context.Context, title string, content string, commentsEnabled bool) (*models.Post, error) {
 	return r.DB.CreatePost(title, content, commentsEnabled)
 }
@@ -37,7 +35,6 @@ func (r *Resolver) CreateComment(ctx context.Context, postId string, parentId *s
 	return comment, nil
 }
 
-// Subscription resolver
 func (r *Resolver) CommentAdded(ctx context.Context, postId string) (<-chan *models.Comment, error) {
 	ch := make(chan *models.Comment)
 	go func() {
@@ -54,7 +51,6 @@ func (r *Resolver) CommentAdded(ctx context.Context, postId string) (<-chan *mod
 	return ch, nil
 }
 
-// Helper function to notify subscribers
 func (r *Resolver) NotifySubscribers(postId string, comment *models.Comment) {
 	data, err := json.Marshal(comment)
 	if err != nil {
